@@ -1,0 +1,6 @@
+openai-whisper
+anthropic
+fastapi
+uvicorn[standard]
+python-multipart
+imageio-ffmpeg

@@ -1,0 +1,17 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.claude/
+.env
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.aiff
+*.wav
+*.srt
+*.ass
+/tmp/
+/jobs/
