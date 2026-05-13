@@ -2,6 +2,8 @@
 
 A small FastAPI web app that auto-transcribes a video with OpenAI Whisper, optionally polishes the result with Claude, and burns styled captions into the video with FFmpeg + libass. Includes an in-browser editor with a timeline, drag-to-position overlays, and a live preview that matches the burned output closely.
 
+![Auto-Caption editor screenshot](docs/screen.png)
+
 ## What it does
 
 1. Upload a video → server runs Whisper to transcribe it.
