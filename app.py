@@ -287,6 +287,24 @@ INDEX_HTML = r"""<!doctype html>
   .tl-action-btn.ghost:hover:not(:disabled) { color: #cdd6df;
                                               border-color: #5b8def; }
   .tl-hint { font-size: 11px; color: #6c7681; margin-left: auto; }
+  .seg-editor { margin-top: 10px; padding: 10px; background: #14181d;
+                border: 1px solid #2a3038; border-radius: 6px; }
+  .seg-editor-head { display: flex; align-items: center;
+                     justify-content: space-between; margin-bottom: 6px;
+                     font-size: 11px; color: #8b96a1; }
+  #segEditorTitle { font-weight: 600; color: #cdd6df; }
+  .seg-editor-x { background: transparent; color: #8b96a1; border: 0;
+                  font-size: 16px; line-height: 1; cursor: pointer;
+                  padding: 2px 6px; border-radius: 4px; }
+  .seg-editor-x:hover { color: #cdd6df; background: #20262d; }
+  #segEditorText { width: 100%; box-sizing: border-box; padding: 8px;
+                   background: #0a0d11; color: #e6edf3; border: 1px solid
+                   #2a3038; border-radius: 5px; font-family: inherit;
+                   font-size: 13px; line-height: 1.4; resize: vertical; }
+  #segEditorText:focus { outline: none; border-color: #5b8def; }
+  .seg-editor-foot { display: flex; align-items: center; gap: 8px;
+                     margin-top: 8px; }
+  .seg-editor-hint { font-size: 10px; color: #6c7681; margin-right: auto; }
   .placeholder { display: flex; align-items: center; justify-content: center;
                  color: #4a5560; font-size: 14px; background:
                  linear-gradient(135deg, #0e1318 0%, #1a232c 100%); }
@@ -401,6 +419,22 @@ INDEX_HTML = r"""<!doctype html>
           <div class="tl-playhead" id="tlPlayhead" style="left:0"></div>
         </div>
         <span class="tl-time" id="tlTime">0:00 / 0:00</span>
+      </div>
+
+      <!-- Inline caption editor — opened by double-clicking a timeline block. -->
+      <div class="seg-editor" id="segEditor" hidden>
+        <div class="seg-editor-head">
+          <span id="segEditorTitle">Edit caption</span>
+          <button type="button" class="seg-editor-x" id="segEditorClose"
+                  title="Close without saving">×</button>
+        </div>
+        <textarea id="segEditorText" rows="3"
+                  placeholder="Caption text — use line breaks where you want lines to wrap."></textarea>
+        <div class="seg-editor-foot">
+          <span class="seg-editor-hint">⌘/Ctrl+Enter to save · Esc to cancel</span>
+          <button type="button" class="tl-action-btn ghost" id="segEditorCancel">Cancel</button>
+          <button type="button" class="tl-action-btn" id="segEditorSave">Save</button>
+        </div>
       </div>
       <div class="tl-actions">
         <button id="applyPosAll" type="button" class="tl-action-btn"
@@ -946,6 +980,11 @@ function renderTimeline() {
       video.currentTime = s.start + 0.01;
       if (video.paused) video.play().catch(() => {});
     });
+    el.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openSegmentEditor(i);
+    });
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       if (s.pos_x != null) {
@@ -962,6 +1001,59 @@ function formatTime(t) {
   const m = Math.floor(t / 60), s = Math.floor(t % 60);
   return `${m}:${s.toString().padStart(2,'0')}`;
 }
+
+// ---------- inline caption editor ----------
+let editingSegIdx = -1;
+function openSegmentEditor(i) {
+  if (i < 0 || i >= segments.length) return;
+  editingSegIdx = i;
+  const s = segments[i];
+  // Pause playback so the user can read while editing — and so the timeline
+  // doesn't advance the active segment under them.
+  if (video && !video.paused) video.pause();
+  // Jump to this segment so the preview shows what they're editing.
+  video.currentTime = s.start + 0.01;
+  activeSegIdx = i;
+  $('segEditorTitle').textContent =
+    `Edit caption ${i + 1} of ${segments.length}  ·  ${formatTime(s.start)} → ${formatTime(s.end)}`;
+  $('segEditorText').value = s.text;
+  $('segEditor').hidden = false;
+  // Defer focus so the textarea can size correctly first.
+  setTimeout(() => {
+    const ta = $('segEditorText');
+    ta.focus();
+    ta.select();
+  }, 0);
+  updateOverlay();
+}
+function closeSegmentEditor() {
+  editingSegIdx = -1;
+  $('segEditor').hidden = true;
+}
+function saveSegmentEditor() {
+  if (editingSegIdx < 0) return;
+  const newText = $('segEditorText').value.trim();
+  if (!newText) {
+    if (!confirm('Caption text is empty. Remove this caption?')) return;
+    segments.splice(editingSegIdx, 1);
+  } else {
+    segments[editingSegIdx] = {...segments[editingSegIdx], text: newText};
+  }
+  closeSegmentEditor();
+  renderTimeline();
+  updateOverlay();
+  logEl.textContent += 'Caption updated. Click "Render captioned video" to re-burn.\n';
+}
+$('segEditorClose').addEventListener('click', closeSegmentEditor);
+$('segEditorCancel').addEventListener('click', closeSegmentEditor);
+$('segEditorSave').addEventListener('click', saveSegmentEditor);
+$('segEditorText').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.preventDefault(); closeSegmentEditor(); }
+  else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    saveSegmentEditor();
+  }
+});
 
 function updateActiveSegment() {
   if (!segments.length) { activeSegIdx = -1; return; }
